@@ -62,7 +62,6 @@ execute 'create replication user' do
   not_if "psql postgres -c 'SELECT usename FROM pg_user' |grep #{node['postgresql-cluster']['repmgr']['db_user']}"
 end
 
-
 template "/etc/repmgr/9.4/repmgr.conf" do
   source 'repmgr.conf.erb'
   owner 'root'
@@ -73,14 +72,20 @@ template "/etc/repmgr/9.4/repmgr.conf" do
     master_node: master_node
 end
 
-# pgpass for repmgr db
-# file '/root/.pgpass' do
-#   owner 'root'
-#   group 'root'
-#   mode 00700
-#   action :create
-#   content "#{master_node}:5432:#{node['postgresql-cluster']['repmgr']['db_name']}:#{node['postgresql-cluster']['repmgr']['db_user']}:#{node['postgresql-cluster']['repmgr']['db_password']}\n"
-# end
+# begin cheapo master/slave setup.  what this should look like is:
+# if a node is tagged `pg_master`:
+#   check to see if repmgr is setup (repmgr db exists)
+#     if not, set it up
+#     if so, verify the operational state from repmgr's perspective (cluster show?)
+#        verify if this machine is still really the master.
+#          if not(another machine has become the master), remote the pg_master tag and set a pg_slave tag.
+#             see if this node has been set as a slave, if not set it up as one
+#          if no masters, bomb
+#
+#  if a node is tagged as a slave
+#    check to see if repmgr is setup on the master
+#      if not, bomb or go into a sleep loop?
+#         if timeout?   (should we expect an external actor such as pgpool or repmgrd to handle failover for us?)
 
 if node.tags.include?('pg_master')
 

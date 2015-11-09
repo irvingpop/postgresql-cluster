@@ -4,7 +4,7 @@ myhostname = node.name
 execute 'force-hostname-fqdn' do
   command "hostname #{myhostname}"
   action :run
-  not_if { myhostname == `/bin/hostname` }
+  not_if { myhostname == `/bin/hostname`.chomp }
 end
 
 file '/etc/hostname' do

@@ -38,16 +38,23 @@ default['postgresql']['client']['packages'] = %w(postgresql94-devel)
 default['postgresql']['contrib']['packages'] = %w(postgresql94-contrib)
 default['postgresql']['server']['packages'] = %w(postgresql94-server pgpool-II-94-extensions repmgr94)
 
-# pgpool from pgdg
-default['pgpool']['config']['package_name'] = 'pgpool-II-94'
-default['pgpool']['service'] = 'pgpool-II-94'
-default['pgpool']['config']['dir'] = '/etc/pgpool-II-94'
-
 # Repmgr settings
 default['postgresql-cluster']['cluster_name'] = 'example'
 default['postgresql-cluster']['repmgr']['db_name'] = 'repmgr_db'
 default['postgresql-cluster']['repmgr']['db_user'] = 'replication'
 default['postgresql-cluster']['repmgr']['db_password'] = 'replication'
+
+# pgpool from pgdg
+default['pgpool']['config']['package_name'] = 'pgpool-II-94'
+default['pgpool']['service'] = 'pgpool-II-94'
+default['pgpool']['config']['dir'] = '/etc/pgpool-II-94'
+default['pgpool']['pgconf']['master_slave_mode'] = true
+default['pgpool']['pgconf']['sr_check_user'] = node['postgresql-cluster']['repmgr']['db_user']
+default['pgpool']['pgconf']['sr_check_password'] = node['postgresql-cluster']['repmgr']['db_password']
+default['pgpool']['pgconf']['failover_command'] = '' # TODO
+default['pgpool']['pgconf']['failback_command'] = '' # TODO
+default['pgpool']['pgconf']['recovery_first_stage_command'] = '' # TODO
+default['pgpool']['pgconf']['follow_master_command'] = '' # TODO
 
 # Postgres settings
 default['postgresql-cluster']['dbnames'] = %w(opscode_chef bifrost opscode_reporting oc_id)
@@ -107,6 +114,5 @@ default['postgresql']['pg_hba'] = [
   {:type => 'local', :db => 'replication', :user => 'postgres', :addr => nil, :method => 'ident'},
   {:type => 'host', :db => 'replication', :user => 'postgres', :addr => '127.0.0.1/32', :method => 'md5'},
   {:type => 'host', :db => 'replication', :user => 'postgres', :addr => '::1/128', :method => 'md5'},
-  {:type => 'host', :db => 'replication', :user => 'replication', :addr => '0.0.0.0/0', :method => 'md5'},
   {:type => 'host', :db => 'replication', :user => 'replication', :addr => '0.0.0.0/0', :method => 'md5'}
 ]

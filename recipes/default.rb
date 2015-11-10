@@ -162,7 +162,7 @@ else
   end
 
   # TODO: insert better guard here
-  file '/var/lib/pgsql/standby_init' do
+  file guardfile do
     owner 'root'
     group 'root'
     mode 00755

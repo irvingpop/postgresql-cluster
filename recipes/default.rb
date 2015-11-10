@@ -72,6 +72,7 @@ template "/etc/repmgr/9.4/repmgr.conf" do
     master_node: master_node
 end
 
+
 # begin cheapo master/slave setup.  what this should look like is:
 # if a node is tagged `pg_master`:
 #   check to see if repmgr is setup (repmgr db exists)
@@ -136,13 +137,7 @@ else
   execute 'repmgr_standby_clone' do
     command "/usr/pgsql-9.4/bin/repmgr -f /etc/repmgr/9.4/repmgr.conf -d #{node['postgresql-cluster']['repmgr']['db_name']} -U #{node['postgresql-cluster']['repmgr']['db_user']} --verbose standby clone #{master_node}"
     environment ({ 'PGPASSWORD' => node['postgresql-cluster']['repmgr']['db_password'] })
-    action :run
-    not_if "test -f #{guardfile}"
-  end
-
-  # chown
-  execute 'fix_pgdatadir_perms' do
-    command "chown -R postgres:postgres /var/lib/pgsql/9.4/data"
+    user 'postgres'
     action :run
     not_if "test -f #{guardfile}"
   end
@@ -156,7 +151,8 @@ else
 
   # repmgr register
   execute 'repmgr_standby_register' do
-    command '/usr/pgsql-9.4/bin/repmgr -f /etc/repmgr/9.4/repmgr.conf --verbose cluster show'
+    command '/usr/pgsql-9.4/bin/repmgr -f /etc/repmgr/9.4/repmgr.conf --verbose standby register'
+    user 'postgres'
     action :run
     not_if "test -f #{guardfile}"
   end

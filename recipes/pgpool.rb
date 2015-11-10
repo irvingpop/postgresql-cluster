@@ -38,7 +38,19 @@ found_nodes.each_with_index do |nodedata,index|
   node.set['pgpool']['pgconf']["backend_flag#{index}"] = 'ALLOW_TO_FAILOVER'
 end
 
+# install pgpool
 include_recipe 'pgpool::default'
+
+# pgpool+repmgr failover scripts
+
+# failover.sh runs on a pgpool node - it is supposed to ssh to the new master node to promote
+# TODO: ssh key management
+template "#{node['pgpool']['config']['dir']}/failover.sh" do
+  source 'failover.sh.erb'
+  owner 'root'
+  group 'root'
+  mode 00744
+end
 
 # TODO: create a method to generate the pool_passwd from a list of DB usernames + passwords
 # should generate "replication:md5fea8040a27d261e5ce47cacd41b48a90"

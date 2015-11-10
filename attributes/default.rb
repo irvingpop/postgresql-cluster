@@ -52,10 +52,13 @@ default['pgpool']['pgconf']['port'] = 9999  # default - we could change to 5432 
 default['pgpool']['pgconf']['master_slave_mode'] = true
 default['pgpool']['pgconf']['sr_check_user'] = node['postgresql-cluster']['repmgr']['db_user']
 default['pgpool']['pgconf']['sr_check_password'] = node['postgresql-cluster']['repmgr']['db_password']
-default['pgpool']['pgconf']['failover_command'] = '' # TODO
-default['pgpool']['pgconf']['failback_command'] = '' # TODO
-default['pgpool']['pgconf']['recovery_first_stage_command'] = '' # TODO
+default['pgpool']['pgconf']['failover_command'] = "#{node['pgpool']['config']['dir']}/failover.sh %h %H"
+default['pgpool']['pgconf']['failback_command'] = "#{node['pgpool']['config']['dir']}/failover.sh %h %H"
+default['pgpool']['pgconf']['recovery_first_stage_command'] = "#{node['pgpool']['config']['dir']}/basebackup.sh"
 default['pgpool']['pgconf']['follow_master_command'] = '' # TODO
+default['pgpool']['pgconf']['recovery_user'] = node['postgresql-cluster']['repmgr']['db_user']
+default['pgpool']['pgconf']['recovery_password'] = node['postgresql-cluster']['repmgr']['db_password']
+default['pgpool']['pgconf']['recovery_timeout'] = 300
 # pgpool auth
 # TODO: generate a pool_passwd file
 default['pgpool']['pgconf']['enable_pool_hba'] = true
@@ -70,6 +73,7 @@ default['postgresql-cluster']['dbnames'] = %w(opscode_chef bifrost opscode_repor
 
 default['postgresql']['server']['service_name'] = "postgresql-#{node['postgresql']['version']}"
 default['postgresql']['dir'] = "/var/lib/pgsql/#{node['postgresql']['version']}/data"
+default['postgresql']['bin_dir'] = "/usr/pgsql-#{node['postgresql']['version']}/bin"
 
 default['postgresql']['config']['data_directory'] = node['postgresql']['dir']
 default['postgresql']['config']['listen_addresses'] = '*'
@@ -101,7 +105,7 @@ default['postgresql']['config']['checkpoint_completion_target'] = '0.9'
 default['postgresql']['config']['checkpoint_warning'] = '30s'
 
 # pgpool recommended settings
-default['postgresql']['config']['pgpool.pg_ctl'] = "/user/pgsql-#{node['postgresql']['version']}/bin/pg_ctl"
+default['postgresql']['config']['pgpool.pg_ctl'] = "#{node['postgresql']['bin_dir']}/pg_ctl"
 
 # repmgr recommended settings
 default['postgresql']['config']['hot_standby'] = 'on'

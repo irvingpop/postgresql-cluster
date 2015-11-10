@@ -48,6 +48,7 @@ default['postgresql-cluster']['repmgr']['db_password'] = 'replication'
 default['pgpool']['config']['package_name'] = 'pgpool-II-94'
 default['pgpool']['service'] = 'pgpool-II-94'
 default['pgpool']['config']['dir'] = '/etc/pgpool-II-94'
+default['pgpool']['pgconf']['port'] = 9999  # default - we could change to 5432 if it makes sense
 default['pgpool']['pgconf']['master_slave_mode'] = true
 default['pgpool']['pgconf']['sr_check_user'] = node['postgresql-cluster']['repmgr']['db_user']
 default['pgpool']['pgconf']['sr_check_password'] = node['postgresql-cluster']['repmgr']['db_password']
@@ -55,6 +56,14 @@ default['pgpool']['pgconf']['failover_command'] = '' # TODO
 default['pgpool']['pgconf']['failback_command'] = '' # TODO
 default['pgpool']['pgconf']['recovery_first_stage_command'] = '' # TODO
 default['pgpool']['pgconf']['follow_master_command'] = '' # TODO
+# pgpool auth
+# TODO: generate a pool_passwd file
+default['pgpool']['pgconf']['enable_pool_hba'] = true
+default['pgpool']['pg_hba']['auth'] = [
+  { type: 'local', db: 'all', user: 'all', addr: nil, method: 'md5' },
+  { type: 'host', db: 'all', user: 'all', addr: '127.0.0.1/32', method: 'md5' },
+  { type: 'host', db: 'all', user: 'all', addr: '::1/128', method: 'md5' }
+]
 
 # Postgres settings
 default['postgresql-cluster']['dbnames'] = %w(opscode_chef bifrost opscode_reporting oc_id)

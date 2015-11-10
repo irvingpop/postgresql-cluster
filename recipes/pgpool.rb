@@ -1,3 +1,4 @@
+require 'digest/md5'
 
 # setup PGDG repositories and install Postgres client libraries
 include_recipe 'postgresql::default'
@@ -39,8 +40,25 @@ end
 
 include_recipe 'pgpool::default'
 
+# TODO: create a method to generate the pool_passwd from a list of DB usernames + passwords
+# should generate "replication:md5fea8040a27d261e5ce47cacd41b48a90"
+pool_passwd_content = "#{node['postgresql-cluster']['repmgr']['db_user']}:md5" + Digest::MD5::hexdigest(
+  node['postgresql-cluster']['repmgr']['db_password'] + node['postgresql-cluster']['repmgr']['db_user']
+) + "\n"
+
+file "#{node['pgpool']['config']['dir']}/#{node['pgpool']['pgconf']['pool_password']}" do
+  owner 'postgres'
+  group 'postgres'
+  mode 00640
+  action :create
+  content pool_passwd_content
+  notifies :restart, 'service[pgpool]', :delayed
+end
+
 #  sysctl net.core.somaxconn - should be 256?
 # http://jensd.be/591/linux/setup-a-redundant-postgresql-database-with-repmgr-and-pgpool
 # http://linux.xvx.cz/2014/10/loadbalancing-of-postgresql-databases.html
 # https://github.com/abessifi/pgpool-online-recovery
 # http://www.pgpool.net/pgpool-web/contrib_docs/pgpool-II-3.5.pdf
+
+# maybe install pgpooladmin?  http://git.postgresql.org/gitweb/?p=pgpooladmin.git;a=summary

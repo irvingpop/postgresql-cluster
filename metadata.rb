@@ -14,3 +14,7 @@ depends 'hostsfile'
 depends 'chef-provisioning-vagrant-helper'
 depends 'chef-provisioning-aws-helper'
 #depends 'ssh_authorized_keys' # TODO: use the resources provided by this cookbook
+
+supports 'ubuntu', '>= 12.04'
+supports 'centos', '>= 7.1'
+supports 'redhat', '>= 7.1'

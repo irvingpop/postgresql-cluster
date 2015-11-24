@@ -72,8 +72,7 @@ end
 # ex: SELECT pgpool_recovery('pgpool_recovery', 'standbynode', '/var/lib/pgsql/9.4/data');
 template "#{node['postgresql']['dir']}/pgpool_recovery" do
   source 'pgpool_recovery.erb'
-  owner 'root'
-  group 'root'
+  owner 'postgres'
   mode 00755
 end
 
@@ -81,8 +80,7 @@ end
 #  ex: SELECT pgpool_remote_start('postgresql-1.example.com', '/var/lib/pgsql/9.4/data')
 template "#{node['postgresql']['dir']}/pgpool_remote_start" do
   source 'pgpool_remote_start.erb'
-  owner 'root'
-  group 'root'
+  owner 'postgres'
   mode 00755
 end
 

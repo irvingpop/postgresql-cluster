@@ -94,6 +94,9 @@ when 'debian'
   default['pgpool']['config']['package_name'] = 'pgpool2'
   default['pgpool']['service'] = 'pgpool2'
   default['pgpool']['config']['dir'] = '/etc/pgpool2'
+  default['pgpool']['pgconf']['pid_file_name'] = '/var/run/postgresql/pgpool.pid'
+  default['pgpool']['pgconf']['socket_dir'] = '/var/run/postgresql'
+  default['pgpool']['pgconf']['pcp_socket_dir'] = '/var/run/postgresql'
 else # the dangers of mixing provisioning and regular cookbooks into one, these need to evaluate from your laptop/provisioner node
   default['pgpool']['config']['package_name'] = 'pgpool2'
   default['pgpool']['service'] = 'pgpool2'
@@ -101,6 +104,11 @@ else # the dangers of mixing provisioning and regular cookbooks into one, these 
 end
 default['pgpool']['pgconf']['port'] = 5432  # using the default postgres port here because we expect pgpool to run on a separate box
 default['pgpool']['pgconf']['master_slave_mode'] = true
+default['pgpool']['pgconf']['health_check_period'] = 10
+default['pgpool']['pgconf']['health_check_timeout'] = 20
+default['pgpool']['pgconf']['health_check_max_retries'] = 3
+default['pgpool']['pgconf']['health_check_user'] = node['postgresql-cluster']['repmgr']['db_user']
+default['pgpool']['pgconf']['health_check_password'] = node['postgresql-cluster']['repmgr']['db_password']
 default['pgpool']['pgconf']['sr_check_user'] = node['postgresql-cluster']['repmgr']['db_user']
 default['pgpool']['pgconf']['sr_check_password'] = node['postgresql-cluster']['repmgr']['db_password']
 default['pgpool']['pgconf']['failover_command'] = "#{node['pgpool']['config']['dir']}/failover.sh %h %H"

@@ -4,7 +4,7 @@ maintainer_email 'irving@chef.io'
 license 'all_rights'
 description 'Installs/Configures postgresql-cluster'
 long_description 'Installs/Configures postgresql-cluster'
-version '0.1.0'
+version '0.2.0'
 source_url       'https://github.com/irvingpop/postgresql-cluster'
 issues_url       'https://github.com/irvingpop/postgresql-cluster/issues'
 
@@ -13,3 +13,4 @@ depends 'pgpool'
 depends 'hostsfile'
 depends 'chef-provisioning-vagrant-helper'
 depends 'chef-provisioning-aws-helper'
+#depends 'ssh_authorized_keys' # TODO: use the resources provided by this cookbook

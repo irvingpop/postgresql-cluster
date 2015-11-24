@@ -38,18 +38,31 @@ found_nodes.each_with_index do |nodedata,index|
   node.set['pgpool']['pgconf']["backend_flag#{index}"] = 'ALLOW_TO_FAILOVER'
 end
 
+# oddly if you don't install the postgres server packages, the postgres home dir gets created in a different place
+user 'postgres' do
+  home node['postgresql']['home']
+  shell '/bin/bash'
+end
+
 # install pgpool
 include_recipe 'pgpool::default'
 
 # pgpool+repmgr failover scripts
+include_recipe 'postgresql-cluster::ssh_trust'
 
 # failover.sh runs on a pgpool node - it is supposed to ssh to the new master node to promote
-# TODO: ssh key management
 template "#{node['pgpool']['config']['dir']}/failover.sh" do
   source 'failover.sh.erb'
   owner 'root'
   group 'root'
-  mode 00744
+  mode 00755
+end
+
+template "#{node['pgpool']['config']['dir']}/follow_master.sh" do
+  source 'follow_master.sh.erb'
+  owner 'root'
+  group 'root'
+  mode 00755
 end
 
 # TODO: create a method to generate the pool_passwd from a list of DB usernames + passwords
@@ -64,6 +77,20 @@ file "#{node['pgpool']['config']['dir']}/#{node['pgpool']['pgconf']['pool_passwo
   mode 00640
   action :create
   content pool_passwd_content
+  notifies :restart, 'service[pgpool]', :delayed
+end
+
+# same for pcp.conf but with a *slightly* different format and hashing input
+pcp_content = node['postgresql-cluster']['repmgr']['db_user'] + ':' +
+  Digest::MD5::hexdigest(node['postgresql-cluster']['repmgr']['db_password']) + "\n"
+
+# TODO: patch upstream cookbook to make the pcp.conf template take inputs
+file "#{node['pgpool']['config']['dir']}/pcp.conf" do
+  owner 'postgres'
+  group 'postgres'
+  mode 00640
+  action :create
+  content pcp_content
   notifies :restart, 'service[pgpool]', :delayed
 end
 

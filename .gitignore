@@ -19,5 +19,6 @@ vendor
 vagrants
 nodes
 clients
+data_bags
 .chef/local-mode-cache/
 .chef/keys/

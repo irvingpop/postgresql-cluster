@@ -22,6 +22,6 @@ hostsfile_entry node['ipaddress'] do
   not_if "grep #{node.name} /etc/hosts"
 end
 
-ec2_ephemeral_mount '/var/lib/pgsql' do
-  mount_point '/var/lib/pgsql'
+ec2_ephemeral_mount node['postgresql']['home'] do
+  mount_point node['postgresql']['home']
 end

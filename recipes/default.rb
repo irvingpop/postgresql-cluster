@@ -41,9 +41,22 @@ found_nodes.each do |nodedata|
   end
 end
 
-## Base PostgreSQL setup
 
+## Base PostgreSQL setup
 include_recipe 'postgresql::server'
+
+# goofy stuff to make Ubuntu and Redhat packages behave the same way
+link "/etc/postgresql/#{node['postgresql']['version']}/main/postgresql.conf" do
+  to "#{node['postgresql']['dir']}/postgresql.conf"
+  owner 'postgres'
+  group 'postgres'
+  only_if { node['platform_family'] == 'debian' }
+  notifies :restart, 'service[postgresql]', :immediately
+end
+
+include_recipe 'postgresql-cluster::ssh_trust'
+
+# Pgpool specific setup
 
 # TODO: fixme postgres extension registration for pgpool
 %w(pgpool_regclass pgpool_recovery).each do |extension|
@@ -54,6 +67,25 @@ include_recipe 'postgresql::server'
   end
 end
 
+# pgpool_recovery runs on the master database node - it is triggered by a database function, called by pgpool
+# it calls the script with the same name, located in the $PGDATA directory
+# ex: SELECT pgpool_recovery('pgpool_recovery', 'standbynode', '/var/lib/pgsql/9.4/data');
+template "#{node['postgresql']['dir']}/pgpool_recovery" do
+  source 'pgpool_recovery.erb'
+  owner 'root'
+  group 'root'
+  mode 00755
+end
+
+#  pgpool_remote_start runs on a database node - it is triggered by a database function
+#  ex: SELECT pgpool_remote_start('postgresql-1.example.com', '/var/lib/pgsql/9.4/data')
+template "#{node['postgresql']['dir']}/pgpool_remote_start" do
+  source 'pgpool_remote_start.erb'
+  owner 'root'
+  group 'root'
+  mode 00755
+end
+
 # TODO: fixme replication user's password generation
 execute 'create replication user' do
   command %Q(psql postgres -c "CREATE ROLE #{node['postgresql-cluster']['repmgr']['db_user']} WITH REPLICATION PASSWORD '#{node['postgresql-cluster']['repmgr']['db_password']}' SUPERUSER LOGIN")
@@ -62,7 +94,14 @@ execute 'create replication user' do
   not_if "psql postgres -c 'SELECT usename FROM pg_user' |grep #{node['postgresql-cluster']['repmgr']['db_user']}"
 end
 
-template "/etc/repmgr/9.4/repmgr.conf" do
+directory node['postgresql-cluster']['repmgr']['etc_dir'] do
+  owner 'postgres'
+  mode 00755
+  recursive true
+  action :create
+end
+
+template node['postgresql-cluster']['repmgr']['conf_file'] do
   source 'repmgr.conf.erb'
   owner 'root'
   group 'root'
@@ -100,10 +139,10 @@ if node.tags.include?('pg_master')
 
   # repmgr register
   execute 'repmgr_master_register' do
-    command "/usr/pgsql-9.4/bin/repmgr -f /etc/repmgr/9.4/repmgr.conf master register"
+    command "#{node['postgresql']['bin_dir']}/repmgr -f #{node['postgresql-cluster']['repmgr']['conf_file']} master register"
     action :run
     # reverse psychology
-    not_if "/usr/pgsql-9.4/bin/repmgr -f /etc/repmgr/9.4/repmgr.conf cluster show"
+    not_if "#{node['postgresql']['bin_dir']}/repmgr -f #{node['postgresql-cluster']['repmgr']['conf_file']} cluster show"
   end
 
   # create databases
@@ -118,16 +157,16 @@ if node.tags.include?('pg_master')
 else
   # the process for initting a standby is:  stop service, wipe data dir, clone, start service, reregister standby
   # this is guarded by a guard file, would love a more sane approach
-  guardfile = "/var/lib/pgsql/standby_initted"
+  guardfile = ::File.join(node['postgresql']['home'], 'standby_initted')
 
   # DANGER ZONE
-  service 'postgresql-9.4' do
+  service node['postgresql']['server']['service_name'] do
     supports :status => true
     action :stop
     not_if "test -f #{guardfile}"
   end
 
-  directory '/var/lib/pgsql/9.4/data' do
+  directory node['postgresql']['dir'] do
     recursive true
     action :delete
     not_if "test -f #{guardfile}"
@@ -135,7 +174,7 @@ else
 
   # repmgr clone
   execute 'repmgr_standby_clone' do
-    command "/usr/pgsql-9.4/bin/repmgr -f /etc/repmgr/9.4/repmgr.conf -d #{node['postgresql-cluster']['repmgr']['db_name']} -U #{node['postgresql-cluster']['repmgr']['db_user']} --verbose standby clone #{master_node}"
+    command "#{node['postgresql']['bin_dir']}/repmgr -f #{node['postgresql-cluster']['repmgr']['conf_file']} -d #{node['postgresql-cluster']['repmgr']['db_name']} -U #{node['postgresql-cluster']['repmgr']['db_user']} --verbose standby clone #{master_node}"
     environment ({ 'PGPASSWORD' => node['postgresql-cluster']['repmgr']['db_password'] })
     user 'postgres'
     action :run
@@ -143,7 +182,7 @@ else
   end
 
   # start service
-  service 'postgresql-9.4' do
+  service node['postgresql']['server']['service_name'] do
     supports :status => true
     action [ :enable, :start ]
     not_if "test -f #{guardfile}"
@@ -151,7 +190,7 @@ else
 
   # repmgr register
   execute 'repmgr_standby_register' do
-    command '/usr/pgsql-9.4/bin/repmgr -f /etc/repmgr/9.4/repmgr.conf --verbose standby register'
+    command "#{node['postgresql']['bin_dir']}/repmgr -f #{node['postgresql-cluster']['repmgr']['conf_file']} --verbose standby register"
     user 'postgres'
     action :run
     not_if "test -f #{guardfile}"

@@ -1,8 +1,10 @@
+default['postgresql-cluster']['domain_name'] = 'example.com'
+
 cluster_nodes_count = 2
-default['postgresql-cluster']['cluster_nodes'] = 1.upto(cluster_nodes_count).map { |i| "postgresql-#{i}.example.com" }
+default['postgresql-cluster']['cluster_nodes'] = 1.upto(cluster_nodes_count).map { |i| "postgresql-#{i}.#{node['postgresql-cluster']['domain_name']}" }
 
 pgpool_nodes_count = 1
-default['postgresql-cluster']['pgpool_nodes'] = 1.upto(pgpool_nodes_count).map { |i| "pgpool-#{i}.example.com" }
+default['postgresql-cluster']['pgpool_nodes'] = 1.upto(pgpool_nodes_count).map { |i| "pgpool-#{i}.#{node['postgresql-cluster']['domain_name']}" }
 
 # Provisiong driver settings
 default['postgresql-cluster']['provisioning']['driver'] = 'aws'
@@ -13,6 +15,10 @@ else
   default['postgresql-cluster']['use_interface'] = 'eth0'
 end
 
+# SSH key setup for postgres user (for failover scripts)
+default['postgresql-cluster']['sshkey_databag'] = 'sshkeys'
+default['postgresql-cluster']['postgres_keypair_name'] = 'postgres_ssh'
+
 # Vagrant settings
 default['chef-provisioning-vagrant']['vbox']['box'] = 'box-cutter/centos71'
 default['chef-provisioning-vagrant']['vbox']['ram'] = 512
@@ -21,41 +27,86 @@ default['chef-provisioning-vagrant']['vbox']['private_networks']['default'] = 'd
 
 # AWS settings
 default['chef-provisioning-aws']['region'] = 'us-west-2'
-default['chef-provisioning-aws']['ssh_username'] = 'ec2-user'
 default['chef-provisioning-aws']['instance_type'] = 'c3.xlarge'
 default['chef-provisioning-aws']['ebs_optimized'] = true
-default['chef-provisioning-aws']['image_id'] = 'ami-c15a52f1' # RHEL-7.1_HVM-20150803-x86_64
 default['chef-provisioning-aws']['subnet_id'] = 'subnet-b2bb82f4'
 default['chef-provisioning-aws']['keypair_name'] = "#{ENV['USER']}@postgresql-cluster"
 default['chef-provisioning-aws']['aws_tags'] = { 'X-Project' => 'chef-ha' }
 
-# use the PGDG repositories by default
-default['postgresql']['enable_pgdg_apt'] = true
-default['postgresql']['enable_pgdg_yum'] = true
+# AWS OS chooser
+default['chef-provisioning-aws']['ami_os'] = 'ubuntu'
+case node['chef-provisioning-aws']['ami_os']
+when 'amazon' # note: haven't tested amazon linux
+  default['chef-provisioning-aws']['ssh_username'] = 'ec2-user'
+  default['chef-provisioning-aws']['image_id'] = 'ami-f0091d91' # Amazon Linux AMI 2015.09.1
+when 'rhel'
+  default['chef-provisioning-aws']['ssh_username'] = 'ec2-user'
+  default['chef-provisioning-aws']['image_id'] = 'ami-c15a52f1' # RHEL-7.1_HVM-20150803-x86_64
+when 'ubuntu'
+  default['chef-provisioning-aws']['ssh_username'] = 'ubuntu'
+  default['chef-provisioning-aws']['image_id'] = 'ami-d24c5cb3' # Trusty hvm-ssd release 20151117
+end
 
+# Postgres platform-specific settings for using PGDG (postgresql.org repos/packages)
 default['postgresql']['version'] = '9.4'
-default['postgresql']['client']['packages'] = %w(postgresql94-devel)
-default['postgresql']['contrib']['packages'] = %w(postgresql94-contrib)
-default['postgresql']['server']['packages'] = %w(postgresql94-server pgpool-II-94-extensions repmgr94)
+case node['platform_family']
+when 'rhel'
+  default['postgresql']['enable_pgdg_yum'] = true
+  default['postgresql']['client']['packages'] = %w(postgresql94-devel)
+  default['postgresql']['contrib']['packages'] = %w(postgresql94-contrib)
+  default['postgresql']['server']['packages'] = %w(postgresql94-server pgpool-II-94-extensions repmgr94)
+  default['postgresql']['server']['service_name'] = "postgresql-#{node['postgresql']['version']}"
+  default['postgresql']['home'] = '/var/lib/pgsql'
+  default['postgresql']['dir'] = ::File.join(node['postgresql']['home'], node['postgresql']['version'], 'data')
+  default['postgresql']['bin_dir'] = "/usr/pgsql-#{node['postgresql']['version']}/bin"
+  default['postgresql']['config']['log_directory'] = '/var/log/postgresql'
+when 'debian'
+  default['postgresql']['enable_pgdg_apt'] = true
+  default['postgresql']['client']['packages'] = %w(postgresql-client-9.4)
+  default['postgresql']['contrib']['packages'] = %w(postgresql-contrib-9.4)
+  default['postgresql']['server']['packages'] = %w(postgresql-9.4 postgresql-9.4-pgpool2 postgresql-9.4-repmgr)
+  default['postgresql']['server']['service_name'] = 'postgresql'
+  default['postgresql']['home'] = '/var/lib/postgresql'
+  default['postgresql']['dir'] = ::File.join(node['postgresql']['home'], node['postgresql']['version'], 'main')
+  default['postgresql']['bin_dir'] = ::File.join('/usr/lib/postgresql', node['postgresql']['version'], 'bin')
+  default['postgresql']['config']['hba_file'] = ::File.join(node['postgresql']['dir'], 'pg_hba.conf')
+  default['postgresql']['config']['ident_file'] = "/etc/postgresql/#{node['postgresql']['version']}/main/pg_ident.conf"
+  default['postgresql']['config']['external_pid_file'] = "/var/run/postgresql/#{node['postgresql']['version']}-main.pid"
+  default['postgresql']['config']['log_directory'] = '/var/log/postgresql'
+end
 
 # Repmgr settings
 default['postgresql-cluster']['cluster_name'] = 'example'
 default['postgresql-cluster']['repmgr']['db_name'] = 'repmgr_db'
 default['postgresql-cluster']['repmgr']['db_user'] = 'replication'
 default['postgresql-cluster']['repmgr']['db_password'] = 'replication'
+default['postgresql-cluster']['repmgr']['etc_dir'] = ::File.join('/etc/repmgr', node['postgresql']['version'])
+default['postgresql-cluster']['repmgr']['conf_file'] = ::File.join(node['postgresql-cluster']['repmgr']['etc_dir'], 'repmgr.conf')
 
 # pgpool from pgdg
-default['pgpool']['config']['package_name'] = 'pgpool-II-94'
-default['pgpool']['service'] = 'pgpool-II-94'
-default['pgpool']['config']['dir'] = '/etc/pgpool-II-94'
-default['pgpool']['pgconf']['port'] = 9999  # default - we could change to 5432 if it makes sense
+default['postgresql']['version'] = '9.4'
+case node['platform_family']
+when 'rhel'
+  default['pgpool']['config']['package_name'] = 'pgpool-II-94'
+  default['pgpool']['service'] = 'pgpool-II-94'
+  default['pgpool']['config']['dir'] = '/etc/pgpool-II-94'
+when 'debian'
+  default['pgpool']['config']['package_name'] = 'pgpool2'
+  default['pgpool']['service'] = 'pgpool2'
+  default['pgpool']['config']['dir'] = '/etc/pgpool2'
+else # the dangers of mixing provisioning and regular cookbooks into one, these need to evaluate from your laptop/provisioner node
+  default['pgpool']['config']['package_name'] = 'pgpool2'
+  default['pgpool']['service'] = 'pgpool2'
+  default['pgpool']['config']['dir'] = '/etc/pgpool2'
+end
+default['pgpool']['pgconf']['port'] = 5432  # using the default postgres port here because we expect pgpool to run on a separate box
 default['pgpool']['pgconf']['master_slave_mode'] = true
 default['pgpool']['pgconf']['sr_check_user'] = node['postgresql-cluster']['repmgr']['db_user']
 default['pgpool']['pgconf']['sr_check_password'] = node['postgresql-cluster']['repmgr']['db_password']
 default['pgpool']['pgconf']['failover_command'] = "#{node['pgpool']['config']['dir']}/failover.sh %h %H"
 default['pgpool']['pgconf']['failback_command'] = "#{node['pgpool']['config']['dir']}/failover.sh %h %H"
-default['pgpool']['pgconf']['recovery_first_stage_command'] = "#{node['pgpool']['config']['dir']}/basebackup.sh"
-default['pgpool']['pgconf']['follow_master_command'] = '' # TODO
+default['pgpool']['pgconf']['follow_master_command'] = "#{node['pgpool']['config']['dir']}/follow_master.sh %D %h %H"
+default['pgpool']['pgconf']['recovery_first_stage_command'] = 'pgpool_recovery'
 default['pgpool']['pgconf']['recovery_user'] = node['postgresql-cluster']['repmgr']['db_user']
 default['pgpool']['pgconf']['recovery_password'] = node['postgresql-cluster']['repmgr']['db_password']
 default['pgpool']['pgconf']['recovery_timeout'] = 300
@@ -71,9 +122,7 @@ default['pgpool']['pg_hba']['auth'] = [
 # Postgres settings
 default['postgresql-cluster']['dbnames'] = %w(opscode_chef bifrost opscode_reporting oc_id)
 
-default['postgresql']['server']['service_name'] = "postgresql-#{node['postgresql']['version']}"
-default['postgresql']['dir'] = "/var/lib/pgsql/#{node['postgresql']['version']}/data"
-default['postgresql']['bin_dir'] = "/usr/pgsql-#{node['postgresql']['version']}/bin"
+
 
 default['postgresql']['config']['data_directory'] = node['postgresql']['dir']
 default['postgresql']['config']['listen_addresses'] = '*'
@@ -83,12 +132,11 @@ default['postgresql']['config']['shared_buffers'] = '128MB'
 default['postgresql']['config']['dynamic_shared_memory_type'] = 'posix'
 default['postgresql']['config']['log_destination'] = 'stderr'
 default['postgresql']['config']['logging_collector'] = true
-default['postgresql']['config']['log_directory'] = 'pg_log'
-default['postgresql']['config']['log_filename'] = 'postgresql-%a.log'
+default['postgresql']['config']['log_filename'] = 'postgresql.log' # TODO: revisit log file naming
 default['postgresql']['config']['log_truncate_on_rotation'] = true
 default['postgresql']['config']['log_rotation_age'] = '1d'
 default['postgresql']['config']['log_rotation_size'] = 0
-default['postgresql']['config']['log_line_prefix'] = '< %m >'
+# default['postgresql']['config']['log_line_prefix'] = '< %m >'
 default['postgresql']['config']['log_timezone'] = 'UTC'
 default['postgresql']['config']['datestyle'] = 'iso, mdy'
 default['postgresql']['config']['timezone'] = 'UTC'

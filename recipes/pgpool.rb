@@ -1,33 +1,9 @@
 require 'digest/md5'
 
+include_recipe 'postgresql-cluster::hostsfile'
+
 # setup PGDG repositories and install Postgres client libraries
 include_recipe 'postgresql::default'
-
-# discovery phase
-# first, populate /etc/hosts from search results
-def extract_cluster_ip(node_results)
-  use_interface = node['postgresql-cluster']['use_interface']
-  node_results['network_interfaces'][use_interface]['addresses']
-    .select { |k,v| v['family'] == 'inet' }.keys
-end
-
-found_nodes = search(:node, "name:postgresql-*",
-  filter_result: {
-    'name' => [ 'name' ],
-    'fqdn' => [ 'fqdn' ],
-    'network_interfaces' => [ 'network', 'interfaces' ]
-  }
-).reject { |nodedata| nodedata['network_interfaces'].nil? } #not if no interface data
-  .reject { |nodedata| nodedata['name'] == node.name } # not if it's me
-
-found_nodes.each do |nodedata|
-  hostsfile_entry extract_cluster_ip(nodedata) do
-    hostname nodedata['name']
-    aliases [ nodedata['fqdn'], nodedata['name'].split('.').first ]
-    unique true
-    comment 'Chef postgresql-cluster cookbook'
-  end
-end
 
 # then set pgpool data based on search results
 found_nodes.each_with_index do |nodedata,index|

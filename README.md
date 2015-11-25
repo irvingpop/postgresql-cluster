@@ -14,8 +14,11 @@ This cookbook will create an example cluster with two PostgreSQL servers (primar
 
 Once Postgres clustering has been configured, this cookbook will also create an additional server running pgpool-II.   Pgpool is configured to act as both a proxy  (it accepts postgres connections and routes them to the correct backend host) as well as a failover controller.  Failover scripts have been implemented which allow pgpool to trigger a failover and recover a former primary as a standby node.
 
-It was tested on RHEL 7.1 and Ubuntu 14.04 using the Postgres 9.4 packages.
+It was tested on RHEL 7.1 and Ubuntu 14.04 using the Postgres PGDG 9.4 packages.
 
+Credit to [this article](http://jensd.be/591/linux/setup-a-redundant-postgresql-database-with-repmgr-and-pgpool) by Jens Depuydt for the detailed setup description, which I turned into cookbook form.
+
+![postgres cluster diagram](http://jensd.be/wp-content/uploads/pgpool2.png)
 
 # Using it
 

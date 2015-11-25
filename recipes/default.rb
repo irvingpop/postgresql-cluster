@@ -142,16 +142,6 @@ if node.tags.include?('pg_master')
     # reverse psychology
     not_if "#{node['postgresql']['bin_dir']}/repmgr -f #{node['postgresql-cluster']['repmgr']['conf_file']} cluster show"
   end
-
-  # create databases
-  node['postgresql-cluster']['dbnames'].each do |dbname|
-    execute "create_db_#{dbname}" do
-      command "createdb -U postgres #{dbname}"
-      action :run
-      user 'postgres'
-      not_if "psql postgres -c 'SELECT datname FROM pg_database' |grep #{dbname}"
-    end
-  end
 else
   # the process for initting a standby is:  stop service, wipe data dir, clone, start service, reregister standby
   # this is guarded by a guard file, would love a more sane approach

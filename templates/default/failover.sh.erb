@@ -1,0 +1,10 @@
+#!/bin/sh
+failed_node=$1
+new_master=$2
+(
+date
+echo "Failed node: $failed_node"
+set -x
+/usr/bin/ssh -T -o StrictHostKeyChecking=no -i <%= node['postgresql']['home'] %>/.ssh/id_rsa -l postgres $new_master "<%= node['postgresql']['bin_dir'] %>/repmgr -f <%= node['postgresql-cluster']['repmgr']['conf_file'] %> standby promote 2>/dev/null 1>/dev/null <&-"
+# exit 0; why would we do that?
+) 2>&1 | tee -a /var/log/pgpool/pgpool_failover.log

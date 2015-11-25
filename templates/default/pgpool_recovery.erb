@@ -1,0 +1,35 @@
+#!/bin/sh
+# pgpool online recovery script using repmgr + PG streaming replication
+# this version is similar to follow_master.sh but is meant to run from the PG master node with fixed arguments
+data_directory=$1
+remote_host=$2
+remote_data_directory=$3
+remote_port=$4
+master_node=`hostname` # this node, assumes DNS is working - maybe use node['ipaddress'] ?
+
+# written out variables from the chef cookbook
+pg_bin_dir=<%= node['postgresql']['bin_dir'] %>
+repmgr_conf_file=<%= node['postgresql-cluster']['repmgr']['conf_file'] %>
+repmgr_db_name=<%= node['postgresql-cluster']['repmgr']['db_name'] %>
+repmgr_db_user=<%= node['postgresql-cluster']['repmgr']['db_user'] %>
+repmgr_db_password=<%= node['postgresql-cluster']['repmgr']['db_password'] %>
+
+ssh_flags="-T -o StrictHostKeyChecking=no -i <%= node['postgresql']['home'] %>/.ssh/id_rsa -l postgres"
+
+(
+echo "Performing online recovery of $remote_host at `date`"
+set -xe
+# 1. stop Postgres
+/usr/bin/ssh $ssh_flags $remote_host "test -f $data_directory/postmaster.pid && $pg_bin_dir/pg_ctl stop -D $data_directory --mode=immediate || echo 'postgres not running, no pid file'"
+# 2. clean out the data directory first
+/usr/bin/ssh $ssh_flags $remote_host "rm -rf $data_directory"
+# 3. use repmgr's standby clone feature
+/usr/bin/ssh $ssh_flags $remote_host "PGPASSWORD=$repmgr_db_password $pg_bin_dir/repmgr -f $repmgr_conf_file -d $repmgr_db_name -U $repmgr_db_user --verbose standby clone $master_node"
+# 4. start the postgres service
+/usr/bin/ssh $ssh_flags $remote_host "$pg_bin_dir/pg_ctl start -D $data_directory -w < /dev/null >& /dev/null"
+# 5. register the standby, forcefully
+/usr/bin/ssh $ssh_flags $remote_host "$pg_bin_dir/repmgr -f $repmgr_conf_file --verbose --force standby register"
+# 6. do something with the guardfile at this point??
+
+echo "Online recovery of $remote_host completed successfully at `date`"
+) 2>&1 | tee -a <%= node['postgresql']['dir'] %>/pg_log/pgpool_recovery.log

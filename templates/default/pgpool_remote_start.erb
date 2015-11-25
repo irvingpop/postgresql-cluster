@@ -1,0 +1,12 @@
+#!/bin/sh
+# script to remotely start the postgres service
+remote_host=$1
+remote_data_directory=$2
+
+ssh_flags="-T -o StrictHostKeyChecking=no -i <%= node['postgresql']['home'] %>/.ssh/id_rsa -l postgres"
+
+(
+echo "Remote start on node $remote_host at `date`"
+set -xe
+/usr/bin/ssh $ssh_flags $remote_host "<%= node['postgresql']['bin_dir'] %>/pg_ctl start -D $remote_data_directory -w < /dev/null >& /dev/null"
+) 2>&1 | tee -a <%= node['postgresql']['dir'] %>/pg_log/pgpool_remote_start.log

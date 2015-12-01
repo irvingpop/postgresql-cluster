@@ -103,6 +103,7 @@ else # the dangers of mixing provisioning and regular cookbooks into one, these 
   default['pgpool']['config']['dir'] = '/etc/pgpool2'
 end
 default['pgpool']['pgconf']['listen_addresses'] = '*'
+default['pgpool']['pgconf']['num_init_children'] = 256
 default['pgpool']['pgconf']['port'] = 5432  # using the default postgres port here because we expect pgpool to run on a separate box
 default['pgpool']['pgconf']['master_slave_mode'] = true
 default['pgpool']['pgconf']['health_check_period'] = 10
@@ -125,7 +126,7 @@ default['pgpool']['pgconf']['enable_pool_hba'] = true
 default['pgpool']['pg_hba']['auth'] = [
   { type: 'local', db: 'all', user: 'all', addr: nil, method: 'md5' },
   { type: 'host', db: 'all', user: 'all', addr: '127.0.0.1/32', method: 'md5' },
-  { type: 'host', db: 'all', user: 'all', addr: '::1/128', method: 'md5' }
+  { type: 'host', db: 'all', user: 'all', addr: '0.0.0.0/0', method: 'md5' }
 ]
 
 

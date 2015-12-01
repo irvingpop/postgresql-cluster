@@ -59,6 +59,6 @@ template node['postgresql-cluster']['repmgr']['conf_file'] do
   group 'root'
   mode 00744
   # cheapo way to generate a node id based on my position in the cluster
-  variables node_id: (node['postgresql-cluster']['cluster_nodes'].index(node.name) + 1),
+  variables node_id: (node['postgresql-cluster']['cluster_nodes'].index(node['name']) + 1),
     master_node: master_node
 end
